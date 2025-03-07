@@ -59,7 +59,7 @@ field = Field(
 )
 
 # Perturb the field with a square lattice of round holes
-field = square_lattice(field, 1, 0.2)
+field = square_lattice(field, 10, 2)
 
 # Plot the field
 plt.imshow(jnp.abs(field.u.squeeze()))

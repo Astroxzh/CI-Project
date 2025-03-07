@@ -18,9 +18,9 @@ def square_lattice(field: Field, interval:float, r_holes:float):
         The field after being pertuebed
     '''
     # Step size for the grid resolution
-    res = float(field.dx.squeeze()[1])
-    height = field.shape[-2] * res
-    width = field.shape[-1] * res
+    res = field.dx
+    height = field.shape[0] * res
+    width = field.shape[1] * res
 
     # Generate the grid coordinates
     x = jnp.arange(0, width, res)
@@ -52,14 +52,14 @@ def square_lattice(field: Field, interval:float, r_holes:float):
 from chromatix.elements import PlaneWave
 # Create a field
 field = Field(
-    u = jnp.ones((500, 500), dtype = jnp.complex64),
-    _spectrum = jnp.array([0.5]),
-    _dx = jnp.array([[0.1], [0.1]]),
-    _spectral_density = jnp.array([1.0]),
+    u = jnp.ones((512, 512), dtype = jnp.complex64),
+    _spectrum = 0.5,
+    _dx = 0.1,
+    _spectral_density = 1
 )
 
 # Perturb the field with a square lattice of round holes
-field = square_lattice(field, 1, 0.2)
+field = square_lattice(field, 10, 2)
 
 # Plot the field
 plt.imshow(jnp.abs(field.u.squeeze()))

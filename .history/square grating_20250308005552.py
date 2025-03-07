@@ -18,9 +18,9 @@ def square_lattice(field: Field, interval:float, r_holes:float):
         The field after being pertuebed
     '''
     # Step size for the grid resolution
-    res = float(field.dx.squeeze()[1])
-    height = field.shape[-2] * res
-    width = field.shape[-1] * res
+    res = field.dx
+    height = field.shape[0] * res
+    width = field.shape[1] * res
 
     # Generate the grid coordinates
     x = jnp.arange(0, width, res)
@@ -59,7 +59,7 @@ field = Field(
 )
 
 # Perturb the field with a square lattice of round holes
-field = square_lattice(field, 1, 0.2)
+field = square_lattice(field, 10, 2)
 
 # Plot the field
 plt.imshow(jnp.abs(field.u.squeeze()))
