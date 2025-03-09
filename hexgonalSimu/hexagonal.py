@@ -45,7 +45,7 @@ phi_max = np.pi         # 最大相位调制
 R_hemi = 60e-9          # 半球形调制区域半径 75 nm
 
 # 入射波能量 6.2 keV 对应的波长约 0.2 nm
-wavelength = 0.2e-9     # 0.2 nm = 0.2e-9 m
+wavelength = 20e-9     # 0.2 nm = 0.2e-9 m
 k = 2 * np.pi / wavelength
 
 # 传播距离设置
@@ -56,7 +56,7 @@ z_img = 7.336           # 像面距物面 7.336 m
 # -------------------------------
 # 建立模拟区域（单位：m）
 # -------------------------------
-N = 1024
+N = 4096
 L_extent = 10e-6        # 模拟区域边长 10 µm
 x = np.linspace(-L_extent/2, L_extent/2, N)
 y = np.linspace(-L_extent/2, L_extent/2, N)

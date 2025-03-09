@@ -28,8 +28,8 @@ def angularPro(wavefront, aperture, kz, z):
 # setup parameters
 dx = 11e-6
 N = 2048
-z = 0.955e-3
-wavelength = 40e-9
+z = 4.5e-3
+wavelength = 0.2e-9
 kwn = 2 * pi / wavelength # wavenumber
 
 # spatial and frequency domain sampling
@@ -56,7 +56,7 @@ yO = np.copy(xO)
 XO, YO = np.meshgrid(xO, yO)
 rO2 = XO**2 + YO**2
 
-sw70cm = sphericalWaveG(kwn, 0.7, rO2)
+sw70cm = sphericalWaveG(kwn, 4.5e-3, rO2)
 
 plt.imshow((np.abs(sw70cm))**2)
 plt.show()

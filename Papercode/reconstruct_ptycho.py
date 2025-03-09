@@ -2,16 +2,18 @@ import cdtools
 from matplotlib import pyplot as plt
 import torch as t
 import numpy as np
+import os
+
 
 
 def reconstruct_ptycho(
         cxi_file,
         view=False,
         device='cpu'):
-    
+
     # First, we load the dataset from a .cxi file
-    dataset = cdtools.datasets.Ptycho2DDataset.from_cxi('cxi_files/' + cxi_file)
- 
+    dataset = cdtools.datasets.Ptycho2DDataset.from_cxi(r'D:\github\CI-Project\Papercode\cxi_files' + '\\' + cxi_file)
+
     model = cdtools.models.FancyPtycho.from_dataset(
         dataset,
         # Empirically, the top two modes were the most important
@@ -30,7 +32,7 @@ def reconstruct_ptycho(
     model.to(device=device)
     dataset.to(device=device)
     dataset.get_as(device=device)
-    
+
     # We start with some aggressive probe refinement
     for i, loss in enumerate(model.Adam_optimize(50, dataset, lr=0.02, batch_size=5, schedule=False)):
         # And we liveplot the updates to the model as they happen
@@ -46,7 +48,7 @@ def reconstruct_ptycho(
     # at the edge jump past pi and get a phase wrap. This just keeps the
     # final result unwrapped so it's nice to look at without further processing
     model.obj.data.real = t.clamp(model.obj.data.real, min=-1, max=1)
-    
+
     # Continue refining the probe, but slowly expand the probe support
     for i, loss in enumerate(model.Adam_optimize(50, dataset, lr=0.02, batch_size=5, schedule=False)):
         # And we liveplot the updates to the model as they happen
@@ -81,7 +83,7 @@ def reconstruct_ptycho(
     model.tidy_probes()
 
     save_filename = cxi_file[:-4] + '_ptycho_reconstruction.h5'
-    
+
     # And we save out the results as a .h5 file
     model.save_to_h5('reconstructions/' + save_filename, dataset)
 
@@ -93,9 +95,10 @@ def reconstruct_ptycho(
 
 if __name__ == '__main__':
 
+    os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
     # Set this to the device you would like to run the calculations on
-    device = 'cuda:3'
-    
+    device = 'cuda:0'
+
     # For repeat 0, grating in
     cxi_file = 'e17965_1_00677.cxi'
 
@@ -105,5 +108,7 @@ if __name__ == '__main__':
     cxi_file = 'e17965_1_00678.cxi'
 
     reconstruct_ptycho(cxi_file, view=True, device=device)
-    
+
     plt.show()
+
+#%%
