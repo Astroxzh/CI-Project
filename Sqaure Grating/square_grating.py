@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from chromatix.field import Field
 from chromatix.utils.shapes import _broadcast_2d_to_spatial
 
-def square_lattice(field: Field, interval:float, r_holes:float):
+def square_grating(field: Field, interval:float, r_holes:float):
     '''
     Generates a square lattice of round holes that machtes the grid of chromatix.field
     and perturb the input field
@@ -48,7 +48,7 @@ def square_lattice(field: Field, interval:float, r_holes:float):
     trans = _broadcast_2d_to_spatial(trans, field.ndim)
     return field * trans
 
-
+'''
 from chromatix.elements import PlaneWave
 # Create a field
 field = Field(
@@ -63,4 +63,28 @@ field = square_lattice(field, 1, 0.2)
 
 # Plot the field
 plt.imshow(jnp.abs(field.u.squeeze()))
-plt.show()
+plt.show()'
+'''  
+
+import flax.linen as nn
+
+class SquareGrating(nn.Module):
+    '''
+    Apply a square grating to an incoming field.
+
+    This class can be put before any optical element that accepts a field as input, or 
+    after any optical element that outputs a field.
+
+    Attributes:
+        interval (float): The interval between round holes in micrometers.
+        r_holes (float): The radius of the round holes in micrometers.
+
+    '''
+
+    interval: float
+    r_holes: float
+
+    @nn.compact
+    def __call__(self, field: Field):
+        '''Apply the square grating to the input field'''
+        return square_grating(field, self.interval, self.r_holes)
