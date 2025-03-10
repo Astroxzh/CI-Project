@@ -37,7 +37,8 @@ def fresnel_propagation(U0, dx, wavelength, z):
 # -------------------------------
 # 参数设置
 # -------------------------------
-pitch = 200e-9          # 六角形晶格中心间距 200 nm
+def hexa_grating(pitch=200e-9):
+        # 六角形晶格中心间距 200 nm
 # 最密堆积六角形晶格基矢：
 #   v1 = [pitch, 0]
 #   v2 = [pitch/2, pitch*sqrt(3)/2]
