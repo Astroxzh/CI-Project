@@ -45,7 +45,7 @@ phi_max = np.pi         # 最大相位调制
 R_hemi = 60e-9          # 半球形调制区域半径 75 nm
 
 # 入射波能量 6.2 keV 对应的波长约 0.2 nm
-wavelength = 20e-9     # 0.2 nm = 0.2e-9 m
+wavelength = 532e-9     # 0.2 nm = 0.2e-9 m
 k = 2 * np.pi / wavelength
 
 # 传播距离设置
@@ -56,8 +56,8 @@ z_img = 7.336           # 像面距物面 7.336 m
 # -------------------------------
 # 建立模拟区域（单位：m）
 # -------------------------------
-N = 4096
-L_extent = 10e-6        # 模拟区域边长 10 µm
+N = 8192
+L_extent = 100e-6        # 模拟区域边长 10 µm
 x = np.linspace(-L_extent/2, L_extent/2, N)
 y = np.linspace(-L_extent/2, L_extent/2, N)
 X, Y = np.meshgrid(x, y)
@@ -84,10 +84,11 @@ Y_local = Y - Yc
 R2 = X_local**2 + Y_local**2
 # 在 r<=R_hemi 内采用半球形调制，其相位为：
 #   φ(r) = φ_max * sqrt(1 - (r/R_hemi)^2)
-phi = np.where(R2 <= R_hemi**2, phi_max * np.sqrt(1 - R2 / R_hemi**2), 0)
+# phi = np.where(R2 <= R_hemi**2, phi_max * np.sqrt(1 - R2 / R_hemi**2), 0)
+phi = np.where(R2 <= R_hemi**2, 1, 0)
 # 构造透射函数（纯相位调制）
-T = np.exp(1j * phi)
-
+# T = np.exp(1j * phi)
+T = phi
 # -------------------------------
 # 模拟球面波入射
 # -------------------------------

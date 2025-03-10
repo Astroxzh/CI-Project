@@ -76,9 +76,11 @@ X_local = X - Xc
 Y_local = Y - Yc
 R2 = X_local**2 + Y_local**2
 # 半球形调制：在 r<=R_hemi 内
-phi = np.where(R2 <= R_hemi**2, phi_max * np.sqrt(1 - R2 / R_hemi**2), 0)
+# phi = np.where(R2 <= R_hemi**2, phi_max * np.sqrt(1 - R2 / R_hemi**2), 0)
+phi = np.where(R2 <= R_hemi**2, 1, 0)
 # 构造透射函数（纯相位调制）
-T = np.exp(1j * phi)
+# T = np.exp(1j * phi)
+T = phi
 
 # -------------------------------
 # 模拟球面波入射
@@ -88,7 +90,7 @@ R_inc = np.sqrt(X**2 + Y**2 + d_source**2)
 E_inc = np.exp(1j * k * R_inc) / R_inc
 
 plt.figure()
-plt.imshow(np.angle(E_inc), extent=[x[0]*1e6, x[-1]*1e6, y[0]*1e6, y[-1]*1e6],
+plt.imshow(np.log(np.angle(E_inc)+1), extent=[x[0]*1e6, x[-1]*1e6, y[0]*1e6, y[-1]*1e6],
            cmap='twilight', origin='lower')
 
 
@@ -142,26 +144,3 @@ plt.tight_layout()
 plt.show()
 
 
-
-import h5py
-import matplotlib.pyplot as plt
-
-def probe_read(filepath=r'Papercode\reconstructions\e17965_1_00678_ptycho_reconstruction.h5'):
-    with h5py.File(filepath, 'r') as f:
-        # print("Keys in the file:", list(f.keys()))
-        dataset = f['probe']
-        probe = dataset[:]  # 读取整个数据集
-        # there are two probe modes
-        return probe
-    
-    def forward_model(obj_downSampled, probe):
-    '''
-        the forward model generates the update diffraction field from the down sampled obj
-        in this simulation assumes only one probe 
-    '''
-    obj_fre = fft.fftshift(fft.fft2(obj_downSampled))
-    obj_frepad = pad_array(obj_fre, probe)
-    obj_pad = fft.ifft2(fft.ifftshift(obj_frepad))
-    update_diff_pattern = np.abs(fft.fftshift(fft.fft2((probe[0,:,:] * 0.756 + probe[1,:,:] * 0.244) * obj_pad))) ** 2
-
-    return update_diff_pattern
