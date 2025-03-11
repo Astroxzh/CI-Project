@@ -34,7 +34,7 @@ def pad_array(array, target_shape):
 def forward_model(obj_low, probe):
     m, n = probe.shape[1], probe.shape[2]
     m_d, n_d = obj_low.shape
-    obj_fre_low = jnp.fft.fftshift(jnp.fft.fft2(obj_low))
+    obj_fre_low = jnp.fft.fftshift(jnp.fft.fft2(jnp.exp(obj_low)))
     obj_fre_padded = pad_array(obj_fre_low, (m, n))
     obj_high = jnp.fft.ifft2(jnp.fft.ifftshift(obj_fre_padded))
     diff_pattern0 = jnp.abs(jnp.fft.fftshift(jnp.fft.fft2(probe[0, :, :] * obj_high)))**2
@@ -56,42 +56,20 @@ def derivative_loss_function_wrt_obj(obj_low: jnp.ndarray, probe: jnp.ndarray, m
     return grad(loss_wrt_obj)(obj_low)
 
 def adam_optimization(init_obj_low: jnp.ndarray, measured: jnp.ndarray, background: jnp.ndarray, probe: jnp.ndarray, alpha: float, num_iterations: int) -> jnp.ndarray:
-    
     optimizer = optax.adam(alpha)
-    
     opt_state = optimizer.init(init_obj_low)
     obj_low = init_obj_low
-    
-    best_loss = float('inf')
-    plateau_counter = 0
-    current_alpha = alpha
-
     for _ in range(num_iterations):
         grad_obj = derivative_loss_function_wrt_obj(obj_low, probe, measured, background)
-        
         updates, opt_state = optimizer.update(grad_obj, opt_state, obj_low)
         obj_low = optax.apply_updates(obj_low, updates)
-        
         simulated = forward_model(obj_low, probe)
         loss = loss_function(simulated, background, measured)
         
-        if loss < best_loss:
-            best_loss = loss
-            plateau_counter = 0
-        else:
-            plateau_counter += 1
-
-        if plateau_counter >= 10:
-            current_alpha *= 0.1
-            print(f"Alpha reduced to {current_alpha}")
-            optimizer = optax.adam(current_alpha)
-            opt_state = optimizer.init(obj_low)
-            plateau_counter = 0
-
         if _ % 50 == 0:
             print(f"Iteration: {_}, Loss: {loss}")
         
-        if loss < 1e-9 or alpha < 1e-4:
+        if loss < 1e-9:
             print("Converged below threshold.")
             break
     return obj_low
@@ -107,11 +85,11 @@ background = background_read()
 key_real = jran.PRNGKey(0)
 key_imag = jran.PRNGKey(1)
 real_part = jran.normal(key_real, shape=jnp.shape(data))
-#imag_part = jran.normal(key_imag, shape=jnp.shape(data)) 
+#imag_part = jran.normal(key_imag, shape=jnp.shape(data))
 initial_obj_guess = real_part #+ 1j * imag_part
 obj = jnp.copy(initial_obj_guess)
 
-update_obj = adam_optimization(obj, data, background, probe, 0.4, 1000)
+update_obj = adam_optimization(obj, data, background, probe, 1, 1000)
 
 plt.imshow(jnp.angle(update_obj))
 plt.show()

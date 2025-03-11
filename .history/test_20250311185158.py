@@ -68,10 +68,8 @@ def adam_optimization(init_obj_low: jnp.ndarray, measured: jnp.ndarray, backgrou
 
     for _ in range(num_iterations):
         grad_obj = derivative_loss_function_wrt_obj(obj_low, probe, measured, background)
-        
         updates, opt_state = optimizer.update(grad_obj, opt_state, obj_low)
         obj_low = optax.apply_updates(obj_low, updates)
-        
         simulated = forward_model(obj_low, probe)
         loss = loss_function(simulated, background, measured)
         
@@ -91,7 +89,7 @@ def adam_optimization(init_obj_low: jnp.ndarray, measured: jnp.ndarray, backgrou
         if _ % 50 == 0:
             print(f"Iteration: {_}, Loss: {loss}")
         
-        if loss < 1e-9 or alpha < 1e-4:
+        if loss < 1e-9:
             print("Converged below threshold.")
             break
     return obj_low
@@ -111,7 +109,7 @@ real_part = jran.normal(key_real, shape=jnp.shape(data))
 initial_obj_guess = real_part #+ 1j * imag_part
 obj = jnp.copy(initial_obj_guess)
 
-update_obj = adam_optimization(obj, data, background, probe, 0.4, 1000)
+update_obj = adam_optimization(obj, data, background, probe, 0.0004, 1000)
 
 plt.imshow(jnp.angle(update_obj))
 plt.show()

@@ -91,7 +91,7 @@ def adam_optimization(init_obj_low: jnp.ndarray, measured: jnp.ndarray, backgrou
         if _ % 50 == 0:
             print(f"Iteration: {_}, Loss: {loss}")
         
-        if loss < 1e-9 or alpha < 1e-4:
+        if loss < 1e-9:
             print("Converged below threshold.")
             break
     return obj_low
