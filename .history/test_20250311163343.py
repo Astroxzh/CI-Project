@@ -5,25 +5,19 @@ import h5py
 import jax.random as jran
 import matplotlib.pyplot as plt
 
-def probe_read(filepath=r'Papercode\reconstructions\e17965_1_00678_ptycho_reconstruction.h5'):
+def probe_read(filepath='reconstructions/e17965_1_00678_ptycho_reconstruction.h5'):
     with h5py.File(filepath, 'r') as f:
-        # print("Keys in the file:", list(f.keys()))
-        dataset = f['probe']
-        probe = jnp.array(dataset[:])  # 读取整个数据集
-        # there are two probe modes
+        probe = jnp.array(f['probe'][:])  # Shape: (2, m, n)
         return probe
-    
-def data_read(filepath=r'Papercode\cxi_files\e17965_1_00677.cxi'):
+
+def data_read(filepath='cxi_files/e17965_1_00677.cxi'):
     with h5py.File(filepath, 'r') as f:
-        data = f['entry_1/data_1/data'][:]
-        data = jnp.mean(data,axis=0)
+        data = jnp.sum(f['entry_1/data_1/data'][:], axis=0)
     return data
 
-def background_read(filepath = r'Papercode\reconstructions\e17965_1_00677_ptycho_reconstruction.h5'):
+def background_read(filepath='reconstructions/e17965_1_00677_ptycho_reconstruction.h5'):
     with h5py.File(filepath, 'r') as f:
-        dataset = f['background']
-        background = jnp.array(dataset[:])  # 读取整个数据集
-        return background
+        return jnp.array(f['background'][:])
 
 def pad_array(array, target_shape):
     pad_m = (target_shape[0] - array.shape[0]) // 2
@@ -63,10 +57,6 @@ def adam_optimization(init_obj_low: jnp.ndarray, measured: jnp.ndarray, backgrou
         obj_low = optax.apply_updates(obj_low, updates)
         simulated = forward_model(obj_low, probe)
         loss = loss_function(simulated, background, measured)
-        
-        if _ % 50 == 0:
-            print(f"Iteration: {_}, Loss: {loss}")
-        
         if loss < 1e-9:
             print("Converged below threshold.")
             break
@@ -80,14 +70,14 @@ background = background_read()
 
 #initilize
 # initial_data = data * np.exp(1j * np.random.uniform(0, 2*np.pi, size=data.shape))
-key_real = jran.PRNGKey(0)
-key_imag = jran.PRNGKey(1)
+key = jran.PRNGKey(0)
+key_real, key_imag = jran.split(key)
 real_part = jran.normal(key_real, shape=jnp.shape(data))
-#imag_part = jran.normal(key_imag, shape=jnp.shape(data))
-initial_obj_guess = real_part #+ 1j * imag_part
+imag_part = jran.normal(key_imag, shape=jnp.shape(data))
+initial_obj_guess = real_part + 1j * imag_part
 obj = jnp.copy(initial_obj_guess)
 
-update_obj = adam_optimization(obj, data, background, probe, 1, 1000)
+update_obj = adam_optimization(obj, data, background, probe, 0.001, 1000)
 
 plt.imshow(jnp.angle(update_obj))
 plt.show()

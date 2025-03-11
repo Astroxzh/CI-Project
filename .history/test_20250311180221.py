@@ -87,7 +87,7 @@ real_part = jran.normal(key_real, shape=jnp.shape(data))
 initial_obj_guess = real_part #+ 1j * imag_part
 obj = jnp.copy(initial_obj_guess)
 
-update_obj = adam_optimization(obj, data, background, probe, 1, 1000)
+update_obj = adam_optimization(obj, data, background, probe, 0.4, 1000)
 
 plt.imshow(jnp.angle(update_obj))
 plt.show()

@@ -64,10 +64,10 @@ def adam_optimization(init_obj_low: jnp.ndarray, measured: jnp.ndarray, backgrou
         simulated = forward_model(obj_low, probe)
         loss = loss_function(simulated, background, measured)
         
-        if _ % 50 == 0:
+        if _ % 100 == 0:
             print(f"Iteration: {_}, Loss: {loss}")
         
-        if loss < 1e-9:
+        if loss**2 < 1e-5:
             print("Converged below threshold.")
             break
     return obj_low
@@ -80,14 +80,14 @@ background = background_read()
 
 #initilize
 # initial_data = data * np.exp(1j * np.random.uniform(0, 2*np.pi, size=data.shape))
-key_real = jran.PRNGKey(0)
-key_imag = jran.PRNGKey(1)
+key = jran.PRNGKey(0)
+key_real, key_imag = jran.split(key)
 real_part = jran.normal(key_real, shape=jnp.shape(data))
-#imag_part = jran.normal(key_imag, shape=jnp.shape(data))
-initial_obj_guess = real_part #+ 1j * imag_part
+imag_part = jran.normal(key_imag, shape=jnp.shape(data))
+initial_obj_guess = real_part + 1j * imag_part
 obj = jnp.copy(initial_obj_guess)
 
-update_obj = adam_optimization(obj, data, background, probe, 1, 1000)
+update_obj = adam_optimization(obj, data, background, probe, 0.001, 500)
 
 plt.imshow(jnp.angle(update_obj))
 plt.show()
