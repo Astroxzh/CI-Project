@@ -75,7 +75,7 @@ def adam_optimization(init_obj_low: jnp.ndarray, measured: jnp.ndarray, backgrou
         simulated = forward_model(obj_low, probe)
         loss = loss_function(simulated, background, measured)
         
-        if loss < best_loss * 0.99:
+        if loss < best_loss * 0.9:
             best_loss = loss
             plateau_counter = 0
         else:

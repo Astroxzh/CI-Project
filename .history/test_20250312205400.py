@@ -75,7 +75,7 @@ def adam_optimization(init_obj_low: jnp.ndarray, measured: jnp.ndarray, backgrou
         simulated = forward_model(obj_low, probe)
         loss = loss_function(simulated, background, measured)
         
-        if loss < best_loss * 0.99:
+        if loss < best_loss:
             best_loss = loss
             plateau_counter = 0
         else:
@@ -113,9 +113,5 @@ obj = jnp.copy(initial_obj_guess)
 
 update_obj = adam_optimization(obj, data, background, probe, 0.4, 200)
 
-update_obj_1 = adam_optimization(update_obj, data, background, probe, 0.4, 500)
-
-update_obj_2 = adam_optimization(update_obj_1, data, background, probe, 0.4, 1000)
-
-plt.imshow(jnp.angle(update_obj_2))
+plt.imshow(jnp.angle(update_obj))
 plt.show()
