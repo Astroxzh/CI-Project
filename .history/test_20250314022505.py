@@ -130,25 +130,20 @@ def adam_optimization(init_obj: jnp.ndarray, measured: jnp.ndarray, background: 
         perm = jran.permutation(jran.PRNGKey(epoch), batch_indices)
 
         for step in range(steps_per_epoch):
-            # Extract current batch
-            batch_idx = perm[step * batch_size:(step + 1) * batch_size]
-            measured_batch = measured[batch_idx]
-            background_batch = background[batch_idx]
-            
-            grad_obj = derivative_loss_function_wrt_obj(obj, probe, measured, background)
+        grad_obj = derivative_loss_function_wrt_obj(obj, probe, measured, background)
         
-            updates, opt_state = optimizer.update(grad_obj, opt_state, obj)
-            obj = optax.apply_updates(obj, updates)
+        updates, opt_state = optimizer.update(grad_obj, opt_state, obj)
+        obj = optax.apply_updates(obj, updates)
         
-    simulated = forward_model(obj, probe)
-    loss = loss_function(simulated, background, measured)
+        simulated = forward_model(obj, probe)
+        loss = loss_function(simulated, background, measured)
 
-    if _ % 50 == 0:
-        print(f"Iteration: {_}, Loss: {loss}")
+        if _ % 50 == 0:
+            print(f"Iteration: {_}, Loss: {loss}")
         
-    if loss < 1e-9:
-        print("Converged below threshold.")
-        break
+        if loss < 1e-9:
+            print("Converged below threshold.")
+            break
     return obj
 
 # Example usage
@@ -166,17 +161,17 @@ real_part = jran.normal(key_real, shape=jnp.shape(data))
 initial_obj_guess = real_part #+ 1j * imag_part
 obj = jnp.copy(initial_obj_guess)
 
-update_obj = adam_optimization(obj, data, background, probe, 0.005, 500, batch_size=50)
+update_obj = adam_optimization(obj, data, background, probe, 0.005, 500)
 
-update_obj_1 = adam_optimization(update_obj, data, background, probe, 0.003, 750, batch_size=75)
+update_obj_1 = adam_optimization(update_obj, data, background, probe, 0.005, 750)
 
-update_obj_2 = adam_optimization(update_obj_1, data, background, probe, 0.001, 1000, batch_size=100)
+update_obj_2 = adam_optimization(update_obj_1, data, background, probe, 0.005, 1000)
 
 # m, n = probe.shape[1], probe.shape[2]
-# T_fre_low = jnp.fft.fftshift(jnp.fft.fft2(update_obj_2))
-# T_fre_padded = pad_array(T_fre_low, probe[0, :, :])
-# T_high = jnp.fft.ifft2(jnp.fft.ifftshift(T_fre_padded))
-# obj_high = jnp.exp(1j * T_high)
+T_fre_low = jnp.fft.fftshift(jnp.fft.fft2(update_obj_2))
+T_fre_padded = pad_array(T_fre_low, probe[0, :, :])
+T_high = jnp.fft.ifft2(jnp.fft.ifftshift(T_fre_padded))
+obj_high = jnp.exp(1j * T_high)
 
 plt.imshow(jnp.angle(obj_high))
 plt.show()

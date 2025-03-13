@@ -173,10 +173,10 @@ update_obj_1 = adam_optimization(update_obj, data, background, probe, 0.003, 750
 update_obj_2 = adam_optimization(update_obj_1, data, background, probe, 0.001, 1000, batch_size=100)
 
 # m, n = probe.shape[1], probe.shape[2]
-# T_fre_low = jnp.fft.fftshift(jnp.fft.fft2(update_obj_2))
-# T_fre_padded = pad_array(T_fre_low, probe[0, :, :])
-# T_high = jnp.fft.ifft2(jnp.fft.ifftshift(T_fre_padded))
-# obj_high = jnp.exp(1j * T_high)
+T_fre_low = jnp.fft.fftshift(jnp.fft.fft2(update_obj_2))
+T_fre_padded = pad_array(T_fre_low, probe[0, :, :])
+T_high = jnp.fft.ifft2(jnp.fft.ifftshift(T_fre_padded))
+obj_high = jnp.exp(1j * T_high)
 
 plt.imshow(jnp.angle(obj_high))
 plt.show()
