@@ -1,0 +1,8 @@
+Note Regarding Example Data
+===========================
+
+To avoid duplication, the example data is not distributed along with the cdtools
+package included in this zenodo upload. The example data is available in the
+public version of the repository at:
+
+https://github.com/cdtools-developers/cdtools
