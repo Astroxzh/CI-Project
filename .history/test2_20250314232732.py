@@ -40,7 +40,7 @@ def down_sampling_fre(obj, f=2):
     '''
         down sampling the obj with factor f in Fourier space
     '''
-    m, n = obj.shape[0], obj.shape[1]
+    m, n = obj.shape
     obj_fre = jnp.fft.fftshift(jnp.fft.fft2(obj))
     m_d, n_d = m // f, n // f  # downsampling size
     m_d = int(m_d)
@@ -83,10 +83,8 @@ def forward_model(obj, probe, f=1.5):
         the forward model generates the update diffraction field from the down sampled obj
         in this simulation assumes only one probe 
     '''
-    obj = jnp.exp(obj[..., 0]) * jnp.exp(1j * obj[..., 1])
-
     obj_downSampled = down_sampling_fre(obj, f)
-    obj_fre = jnp.fft.fftshift(jnp.fft.fft2(jnp.exp(1j * obj_downSampled)))
+    obj_fre = jnp.fft.fftshift(jnp.fft.fft2(obj_downSampled))
     obj_frepad = pad_array(obj_fre, probe[0,:,:])
     obj_pad = jnp.fft.ifft2(jnp.fft.ifftshift(obj_frepad))
     update_diff_pattern0 = (jnp.abs(
@@ -99,23 +97,20 @@ def forward_model(obj, probe, f=1.5):
     return update_diff_pattern
 
 
-def loss_function(object: jnp.ndarray,
-                  probe: jnp.ndarray,
-                  background: jnp.ndarray, 
-                  measured: jnp.ndarray,
-                  beta: float = 0.01 # regularization parameter
-) -> float:
-    simulated = forward_model(object, probe)
+def loss_function(simulated: jnp.ndarray, background: jnp.ndarray, measured: jnp.ndarray) -> float:
+    
     assert_equal_shape([simulated, background, measured])
     
     factor = 1.0 / (jnp.sum(measured) + 1e-10)
     simulated_amp = jnp.sqrt(simulated + background)
     measured_amp = jnp.sqrt(measured)
-    
-    loss = factor * jnp.sum((simulated_amp - measured_amp) ** 2)
+    return factor * jnp.sum((simulated_amp - measured_amp) ** 2)
 
-    return loss
-
+def derivative_loss_function_wrt_obj(obj_low: jnp.ndarray, probe: jnp.ndarray, measured: jnp.ndarray, background: jnp.ndarray) -> jnp.ndarray:
+    def loss_wrt_obj(o):
+        simulated = forward_model(o, probe)
+        return loss_function(simulated, background, measured)
+    return grad(loss_wrt_obj)(obj_low)
 
 def adam_optimization(init_obj: jnp.ndarray, measured: jnp.ndarray, background: jnp.ndarray, probe: jnp.ndarray, alpha: float, num_iterations: int, batch_size: int = 50) -> jnp.ndarray:
     
@@ -123,18 +118,20 @@ def adam_optimization(init_obj: jnp.ndarray, measured: jnp.ndarray, background: 
     optimizer = optax.adam(learning_rate = alpha, b1 = 0.9, b2 = 0.999, eps = 1e-8)
     
     opt_state = optimizer.init(init_obj)
-
     obj = init_obj
-    for epoch in range(num_iterations):
 
-        grad_fn = grad(lambda p: loss_function(p, probe, background, measured))
-        grad_obj = grad_fn(obj)
+    # Generate batch indices (simple batch processing)
+
+    for epoch in range(num_iterations):
+        grad_obj = derivative_loss_function_wrt_obj(obj, probe, measured, background)
         
         updates, opt_state = optimizer.update(grad_obj, opt_state, obj)
         obj = optax.apply_updates(obj, updates)
+        
+        simulated = forward_model(obj, probe)
+        loss = loss_function(simulated, background, measured)
 
         if epoch % 50 == 0:
-            loss = loss_function(obj, probe, background, measured)
             print(f"Iteration: {epoch}, Loss: {loss}")
         
         if loss < 1e-9:
@@ -153,9 +150,9 @@ background = background_read()
 key_real = jran.PRNGKey(0)
 key_imag = jran.PRNGKey(1)
 real_part = jran.normal(key_real, shape=jnp.shape(data))
-imag_part = jran.normal(key_imag, shape=jnp.shape(data)) 
-initial_obj_guess = jnp.stack([real_part, imag_part], axis=2)
-obj = initial_obj_guess
+#imag_part = jran.normal(key_imag, shape=jnp.shape(data)) 
+initial_obj_guess = real_part #+ 1j * imag_part
+obj = jnp.copy(initial_obj_guess)
 
 update_obj = adam_optimization(obj, data, background, probe, 0.5, 500, batch_size=50)
 
@@ -163,11 +160,5 @@ update_obj_1 = adam_optimization(update_obj, data, background, probe, 0.05, 750,
 
 update_obj_2 = adam_optimization(update_obj_1, data, background, probe, 0.005, 1000, batch_size=100)
 
-# m, n = probe.shape[1], probe.shape[2]
-# T_fre_low = jnp.fft.fftshift(jnp.fft.fft2(update_obj_2))
-# T_fre_padded = pad_array(T_fre_low, probe[0, :, :])
-# T_high = jnp.fft.ifft2(jnp.fft.ifftshift(T_fre_padded))
-# obj_high = jnp.exp(1j * T_high)
-
-plt.imshow(jnp.angle(update_obj_2))
+plt.imshow(update_obj_2)
 plt.show()

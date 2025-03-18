@@ -114,7 +114,13 @@ def loss_function(object: jnp.ndarray,
     
     loss = factor * jnp.sum((simulated_amp - measured_amp) ** 2)
 
-    return loss
+    # Gradient L2 regularization
+    phase = object[..., 1]
+    phase_diff_x = jnp.diff(phase, axis=-1)
+    phase_diff_y = jnp.diff(phase, axis=-2)
+    smoothness = jnp.sum(phase_diff_x ** 2) + jnp.sum(phase_diff_y ** 2)
+
+    return loss + beta * smoothness
 
 
 def adam_optimization(init_obj: jnp.ndarray, measured: jnp.ndarray, background: jnp.ndarray, probe: jnp.ndarray, alpha: float, num_iterations: int, batch_size: int = 50) -> jnp.ndarray:

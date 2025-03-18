@@ -83,8 +83,6 @@ def forward_model(obj, probe, f=1.5):
         the forward model generates the update diffraction field from the down sampled obj
         in this simulation assumes only one probe 
     '''
-    obj = jnp.exp(obj[..., 0]) * jnp.exp(1j * obj[..., 1])
-
     obj_downSampled = down_sampling_fre(obj, f)
     obj_fre = jnp.fft.fftshift(jnp.fft.fft2(jnp.exp(1j * obj_downSampled)))
     obj_frepad = pad_array(obj_fre, probe[0,:,:])
@@ -114,8 +112,16 @@ def loss_function(object: jnp.ndarray,
     
     loss = factor * jnp.sum((simulated_amp - measured_amp) ** 2)
 
-    return loss
+    # Gradient L2 regularization
+    phase = object[..., 1]
+    phase_diff_x = jnp.diff(phase, axis=-1)
+    phase_diff_y = jnp.diff(phase, axis=-2)
+    smoothness = jnp.sum(phase_diff_x ** 2 + phase_diff_y ** 2)
 
+    return loss + beta * smoothness
+
+def derivative_loss_function_wrt_obj(obj_low: jnp.ndarray, probe: jnp.ndarray, measured: jnp.ndarray, background: jnp.ndarray) -> jnp.ndarray:
+    return grad(loss_function)(obj_low, probe, background, measured)
 
 def adam_optimization(init_obj: jnp.ndarray, measured: jnp.ndarray, background: jnp.ndarray, probe: jnp.ndarray, alpha: float, num_iterations: int, batch_size: int = 50) -> jnp.ndarray:
     
@@ -123,18 +129,32 @@ def adam_optimization(init_obj: jnp.ndarray, measured: jnp.ndarray, background: 
     optimizer = optax.adam(learning_rate = alpha, b1 = 0.9, b2 = 0.999, eps = 1e-8)
     
     opt_state = optimizer.init(init_obj)
-
     obj = init_obj
-    for epoch in range(num_iterations):
 
-        grad_fn = grad(lambda p: loss_function(p, probe, background, measured))
-        grad_obj = grad_fn(obj)
+    # Generate batch indices (simple batch processing)
+    num_samples = measured.shape[0]
+    batch_indices = jnp.arange(num_samples)
+    steps_per_epoch = num_samples // batch_size
+
+    for epoch in range(num_iterations):
+        # Shuffle batch order (simulate stochastic gradient descent)
+        perm = jran.permutation(jran.PRNGKey(epoch), batch_indices)
+
+        for step in range(steps_per_epoch):
+            # Extract current batch
+            batch_idx = perm[step * batch_size:(step + 1) * batch_size]
+            measured_batch = measured[batch_idx]
+            background_batch = background[batch_idx]
+            
+            grad_obj = derivative_loss_function_wrt_obj(obj, probe, measured, background)
         
-        updates, opt_state = optimizer.update(grad_obj, opt_state, obj)
-        obj = optax.apply_updates(obj, updates)
+            updates, opt_state = optimizer.update(grad_obj, opt_state, obj)
+            obj = optax.apply_updates(obj, updates)
+        
+        simulated = forward_model(obj, probe)
+        loss = loss_function(simulated, background, measured)
 
         if epoch % 50 == 0:
-            loss = loss_function(obj, probe, background, measured)
             print(f"Iteration: {epoch}, Loss: {loss}")
         
         if loss < 1e-9:

@@ -40,7 +40,7 @@ def down_sampling_fre(obj, f=2):
     '''
         down sampling the obj with factor f in Fourier space
     '''
-    m, n = obj.shape[0], obj.shape[1]
+    m, n = obj.shape
     obj_fre = jnp.fft.fftshift(jnp.fft.fft2(obj))
     m_d, n_d = m // f, n // f  # downsampling size
     m_d = int(m_d)
@@ -83,8 +83,6 @@ def forward_model(obj, probe, f=1.5):
         the forward model generates the update diffraction field from the down sampled obj
         in this simulation assumes only one probe 
     '''
-    obj = jnp.exp(obj[..., 0]) * jnp.exp(1j * obj[..., 1])
-
     obj_downSampled = down_sampling_fre(obj, f)
     obj_fre = jnp.fft.fftshift(jnp.fft.fft2(jnp.exp(1j * obj_downSampled)))
     obj_frepad = pad_array(obj_fre, probe[0,:,:])
@@ -100,13 +98,14 @@ def forward_model(obj, probe, f=1.5):
 
 
 def loss_function(object: jnp.ndarray,
-                  probe: jnp.ndarray,
+                  probe: jnp.ndarray, 
                   background: jnp.ndarray, 
                   measured: jnp.ndarray,
                   beta: float = 0.01 # regularization parameter
 ) -> float:
+    
     simulated = forward_model(object, probe)
-    assert_equal_shape([simulated, background, measured])
+    # assert_equal_shape([simulated, background, measured])
     
     factor = 1.0 / (jnp.sum(measured) + 1e-10)
     simulated_amp = jnp.sqrt(simulated + background)
@@ -114,27 +113,62 @@ def loss_function(object: jnp.ndarray,
     
     loss = factor * jnp.sum((simulated_amp - measured_amp) ** 2)
 
-    return loss
+    # Gradient L2 regularization
+    phase = object[..., 1]
+    phase_diff_x = jnp.diff(phase, axis=-1)
+    phase_diff_y = jnp.diff(phase, axis=-2)
+    smoothness = jnp.sum(phase_diff_x ** 2 + phase_diff_y ** 2)
 
+    return loss + beta * smoothness
 
-def adam_optimization(init_obj: jnp.ndarray, measured: jnp.ndarray, background: jnp.ndarray, probe: jnp.ndarray, alpha: float, num_iterations: int, batch_size: int = 50) -> jnp.ndarray:
+def derivative_loss_function_wrt_obj(object: jnp.ndarray, 
+                                     probe: jnp.ndarray, 
+                                     measured: jnp.ndarray, 
+                                     background: jnp.ndarray) -> jnp.ndarray:
+    def loss_wrt_obj(o):
+        simulated = forward_model(o, probe)
+        return loss_function(object, probe, background, measured)
+    return grad(loss_wrt_obj)(object)
+
+def adam_optimization(init_obj: jnp.ndarray, 
+                      measured: jnp.ndarray, 
+                      background: jnp.ndarray, 
+                      probe: jnp.ndarray, 
+                      alpha: float, 
+                      num_iterations: int, 
+                      batch_size: int = 50) -> jnp.ndarray:
     
     # Define Adam parameters
     optimizer = optax.adam(learning_rate = alpha, b1 = 0.9, b2 = 0.999, eps = 1e-8)
-    
     opt_state = optimizer.init(init_obj)
-
+    
     obj = init_obj
-    for epoch in range(num_iterations):
+    # Generate batch indices (simple batch processing)
+    num_samples = measured.shape[0]
+    batch_indices = jnp.arange(num_samples)
+    steps_per_epoch = num_samples // batch_size
 
-        grad_fn = grad(lambda p: loss_function(p, probe, background, measured))
-        grad_obj = grad_fn(obj)
+    for epoch in range(num_iterations):
+        # Shuffle batch order (simulate stochastic gradient descent)
+        perm = jran.permutation(jran.PRNGKey(epoch), batch_indices)
+
+        for step in range(steps_per_epoch):
+            # Extract current batch
+            batch_idx = perm[step * batch_size:(step + 1) * batch_size]
+            measured_batch = measured[batch_idx]
+            background_batch = background[batch_idx]
+            probe_batch = probe[batch_idx]
+            obj_batch = obj[batch_idx]
+            
+            grad_obj = derivative_loss_function_wrt_obj(obj, probe, measured_batch, background_batch)
         
-        updates, opt_state = optimizer.update(grad_obj, opt_state, obj)
-        obj = optax.apply_updates(obj, updates)
+            updates, opt_state = optimizer.update(grad_obj, opt_state, obj)
+            obj = optax.apply_updates(obj, updates)
+        
+        simulated = forward_model(obj, probe)
+        loss = loss_function(simulated, background, measured)
 
         if epoch % 50 == 0:
-            loss = loss_function(obj, probe, background, measured)
             print(f"Iteration: {epoch}, Loss: {loss}")
         
         if loss < 1e-9:
@@ -153,9 +187,9 @@ background = background_read()
 key_real = jran.PRNGKey(0)
 key_imag = jran.PRNGKey(1)
 real_part = jran.normal(key_real, shape=jnp.shape(data))
-imag_part = jran.normal(key_imag, shape=jnp.shape(data)) 
-initial_obj_guess = jnp.stack([real_part, imag_part], axis=2)
-obj = initial_obj_guess
+#imag_part = jran.normal(key_imag, shape=jnp.shape(data)) 
+initial_obj_guess = real_part #+ 1j * imag_part
+obj = jnp.copy(initial_obj_guess)
 
 update_obj = adam_optimization(obj, data, background, probe, 0.5, 500, batch_size=50)
 

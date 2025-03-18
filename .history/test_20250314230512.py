@@ -114,7 +114,13 @@ def loss_function(object: jnp.ndarray,
     
     loss = factor * jnp.sum((simulated_amp - measured_amp) ** 2)
 
-    return loss
+    # Gradient L2 regularization
+    phase = object[..., 1]
+    phase_diff_x = jnp.diff(phase, axis=-1)
+    phase_diff_y = jnp.diff(phase, axis=-2)
+    smoothness = jnp.sum(phase_diff_x ** 2) + jnp.sum(phase_diff_y ** 2)
+
+    return loss + beta * smoothness
 
 
 def adam_optimization(init_obj: jnp.ndarray, measured: jnp.ndarray, background: jnp.ndarray, probe: jnp.ndarray, alpha: float, num_iterations: int, batch_size: int = 50) -> jnp.ndarray:
@@ -124,17 +130,29 @@ def adam_optimization(init_obj: jnp.ndarray, measured: jnp.ndarray, background: 
     
     opt_state = optimizer.init(init_obj)
 
-    obj = init_obj
-    for epoch in range(num_iterations):
+    key = jran.PRNGKey(0)
 
-        grad_fn = grad(lambda p: loss_function(p, probe, background, measured))
-        grad_obj = grad_fn(obj)
+    # Generate batch indices (simple batch processing)
+    num_samples = measured.shape[0]
+
+    for epoch in range(num_iterations):
+        # Shuffle batch order (simulate stochastic gradient descent)
+        key, subkey = jran.split(key)
+        perm = jran.permutation(subkey, numb_samples)
+
+        for batch_idx in jnp.array_split(perm, num_samples // batch_size):
+            # Extract current batch
+            batch_meas = measured[batch_idx]
+            
+            grad_fn = jax.grad(lambda p: loss_function(p, probe, background, batch_meas))
+            grad_obj = grad_fn(obj)
         
-        updates, opt_state = optimizer.update(grad_obj, opt_state, obj)
-        obj = optax.apply_updates(obj, updates)
+            updates, opt_state = optimizer.update(grad_obj, opt_state, obj)
+            obj = optax.apply_updates(obj, updates)
+        
+        loss = loss_function(obj, probe, background, measured)
 
         if epoch % 50 == 0:
-            loss = loss_function(obj, probe, background, measured)
             print(f"Iteration: {epoch}, Loss: {loss}")
         
         if loss < 1e-9:
