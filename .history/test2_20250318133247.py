@@ -78,7 +78,7 @@ def down_sampling_spa(obj,f=2):
     return obj_downSampled
 
 
-
+'''
 def forward_model(obj, probe, f=1.5):
     '''
         the forward model generates the update diffraction field from the down sampled obj
@@ -140,7 +140,7 @@ def adam_optimization(init_obj: jnp.ndarray, measured: jnp.ndarray, background: 
             break
     return obj
 
-
+'''
 
 
 # Example usage
