@@ -29,6 +29,27 @@ def fresnel_propagation(U0, dx, wavelength, z):
     U = np.exp(1j * k * z) / (1j * wavelength * z) * Q2 * U1
     return U
 
+def circ(x, y, D):
+    circle = (x**2 + y**2) < (D / 2)**2
+    return circle
+
+
+def angularPropagator(dz, wavelength=632e-6, dx=50e-3, N=2048):
+    k = 2 * np.pi / wavelength
+    L = N * dx
+    x = np.arange(-N / 2, N / 2) * dx
+    [X, Y] = np.meshgrid(x, x)
+
+    fx = np.arange(-N / 2, N / 2) / L
+    Fx, Fy = np.meshgrid(fx, fx)
+    fMax = L / (wavelength * np.sqrt(L**2 + 4 * dz**2))
+    W = circ(Fx, Fy, 2 * fMax)
+    H = np.exp(1j * k * dz * np.sqrt(1 - (Fx * wavelength)**2 - (Fy * wavelength)**2))
+    return H * W
+
+def angularPro(u, propagator):
+    return np.fft.ifft2(np.fft.ifftshift(np.fft.fftshift(np.fft.fft2(u))*propagator))
+
 # -------------------------------
 # 参数设置
 # -------------------------------
@@ -44,16 +65,16 @@ k = 2 * np.pi / wavelength
 
 # 传播距离设置
 z_obj = 0.955e-3      # 物面距光栅平面 0.955 mm
-z_det = 7.336         # 探测器距物面 7.336 m
+z_det = 3e-3     # 探测器距物面 7.336 m
 
 # -------------------------------
 # 建立模拟区域（单位：m）
 # -------------------------------
-N = 1024
-L_extent = 10e-6      # 模拟区域边长 10 µm
-x = np.linspace(-L_extent/2, L_extent/2, N)
-y = np.linspace(-L_extent/2, L_extent/2, N)
-X, Y = np.meshgrid(x, y)
+N = 4096
+size = 10e-6
+dx = size / N
+x = np.arange(-N/2, N/2) * dx
+[X, Y] = np.meshgrid(x, x)
 
 # -------------------------------
 # 计算最密堆积六角形晶格中心
@@ -76,11 +97,11 @@ X_local = X - Xc
 Y_local = Y - Yc
 R2 = X_local**2 + Y_local**2
 # 半球形调制：在 r<=R_hemi 内
-# phi = np.where(R2 <= R_hemi**2, phi_max * np.sqrt(1 - R2 / R_hemi**2), 0)
-phi = np.where(R2 <= R_hemi**2, 1, 0)
+phi = np.where(R2 <= R_hemi**2, phi_max * np.sqrt(1 - R2 / R_hemi**2), 0)
+# phi = np.where(R2 <= R_hemi**2, 1, 0)
 # 构造透射函数（纯相位调制）
-# T = np.exp(1j * phi)
-T = phi
+T = np.exp(1j * phi)
+# T = phi
 
 # -------------------------------
 # 模拟球面波入射
@@ -89,22 +110,25 @@ T = phi
 R_inc = np.sqrt(X**2 + Y**2 + d_source**2)
 E_inc = np.exp(1j * k * R_inc) / R_inc
 
-plt.figure()
-plt.imshow(np.log(np.angle(E_inc)+1), extent=[x[0]*1e6, x[-1]*1e6, y[0]*1e6, y[-1]*1e6],
-           cmap='twilight', origin='lower')
+# plt.figure()
+# plt.imshow(np.log(np.angle(E_inc)+1), extent=[x[0]*1e6, x[-1]*1e6, x[0]*1e6, x[-1]*1e6],
+#            cmap='twilight', origin='lower')
 
 
 # 光栅平面的场
 U_aperture = T * E_inc
-plt.figure()
-plt.imshow(np.angle(U_aperture), extent=[x[0]*1e6, x[-1]*1e6, y[0]*1e6, y[-1]*1e6],
-           cmap='twilight', origin='lower')
+# plt.figure()
+# plt.imshow(np.angle(U_aperture), extent=[x[0]*1e6, x[-1]*1e6, x[0]*1e6, x[-1]*1e6],
+#            cmap='twilight', origin='lower')
 
 # -------------------------------
 # 两步 Fresnel 传播
 # -------------------------------
 # 1. 从光栅平面传播到物面（z_obj = 0.955 mm）
 U_obj = fresnel_propagation(U_aperture, x[1]-x[0], wavelength, z_obj)
+# gtoObjPropagator = angularPropagator(dz=z_obj, wavelength=wavelength, dx=dx, N=N)
+# U_obj = angularPro(U_aperture, gtoObjPropagator)
+plt.imshow(np.log(np.abs(U_obj)**2+1))
 # 2. 从物面传播到探测器（z_det = 7.336 m）
 U_det = fresnel_propagation(U_obj, x[1]-x[0], wavelength, z_det)
 I_det = np.abs(U_det)**2
@@ -125,7 +149,7 @@ plt.figure(figsize=(12, 5))
 
 # 显示六角形衍射光栅的相位分布
 plt.subplot(1, 2, 1)
-plt.imshow(np.angle(T), extent=[x[0]*1e6, x[-1]*1e6, y[0]*1e6, y[-1]*1e6],
+plt.imshow(np.angle(T), extent=[x[0]*1e6, x[-1]*1e6, x[0]*1e6, x[-1]*1e6],
            cmap='twilight', origin='lower')
 plt.title("六角形衍射光栅相位分布\n（半球形调制, R=50 nm）")
 plt.xlabel("x (µm)")
